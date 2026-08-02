@@ -1,0 +1,6 @@
+.achievement-panel{margin-top:18px;border:1px solid var(--line);border-radius:16px;background:#0a2119;padding:17px}
+.achievements{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.achievement{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid #234b3b;border-radius:9px;color:#668878;font-size:13px}
+.achievement>span{font:18px "Space Mono"}.achievement b,.achievement small{display:block}.achievement small{font-size:10px;margin-top:2px}
+.achievement.unlocked{border-color:#75a959;background:#193828;color:#e5f8d7}.achievement.unlocked>span{color:var(--lime)}
+@media(max-width:700px){.achievements{grid-template-columns:1fr 1fr}}

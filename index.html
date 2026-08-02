@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>細胞工廠 Cell Factory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="achievements.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <header>
+        <div class="brand"><span class="helix">⌁</span><div><h1>細胞工廠</h1><p>CELL FACTORY · 原始海洋實驗室</p></div></div>
+        <div class="top-actions"><button class="icon-button" id="apiButton" title="AI 設定">AI</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+      </header>
+
+      <section class="status-card" aria-live="polite">
+        <div><span class="eyebrow">生命狀態</span><strong id="lifeState">DNA</strong><p id="stateHint">一段等待組裝的遺傳密碼。</p></div>
+        <div class="status-orb" id="statusOrb"><span>DNA</span></div>
+      </section>
+
+      <section class="scene" id="scene">
+        <div class="ocean-texture"></div>
+        <div class="floating-label">原始海洋 <span id="nextDrop">探勘以開始</span></div>
+        <div class="molecule dna-art">⌁</div>
+        <div id="incoming"></div>
+        <button class="explore-button" id="exploreButton"><span>⌖</span> 探勘海洋</button>
+      </section>
+
+      <section class="play-area">
+        <aside class="inventory-panel">
+          <div class="section-heading"><span>物質庫</span><small id="inventoryCount">0 種物質</small></div>
+          <p class="helper">選一種物質，再點選合成台格子放入。</p>
+          <div class="inventory" id="inventory"></div>
+        </aside>
+
+        <section class="synthesis-panel">
+          <div class="section-heading"><span>5 × 5 合成台</span><small id="selectionText">尚未選擇物質</small></div>
+          <p class="helper">反應只接受符合遊戲生物學模型的明確配方；放錯原料會失敗並消耗材料。</p>
+          <div class="workbench" id="workbench" aria-label="合成台"></div>
+          <div class="controls"><button class="secondary" id="clearButton">清空面板</button><button class="synthesize-button" id="synthesizeButton">開始合成 <span>→</span></button></div>
+          <div class="reaction-log" id="reactionLog">合成台等待原料。試著探勘原始海洋。</div>
+        </section>
+      </section>
+      <section class="achievement-panel">
+        <div class="section-heading"><span>演化成就表</span><small>第一章：取得胞器並完成細胞分裂</small></div>
+        <p class="helper">生命起源與演化被壓縮為可玩的模型；粒線體以內共生取得，並非由材料直接「合成」。</p>
+        <div class="achievements" id="achievements"></div>
+      </section>
+    </main>
+
+    <dialog id="apiDialog">
+      <form method="dialog" id="apiForm">
+        <div class="dialog-title"><div><span class="eyebrow">可選功能</span><h2>AI 合成判定</h2></div><button class="close" value="cancel">×</button></div>
+        <p>為避免 AI 臆測化學結果，本版本的合成判定鎖定為可驗證的固定規則。AI 可在下一版作為科學解說員使用，而不改寫反應結果。</p>
+        <div class="dialog-actions"><button class="secondary" value="cancel">取消</button><button class="synthesize-button" id="saveApi" value="default">儲存設定</button></div>
+      </form>
+    </dialog>
+    <script src="app.js"></script>
+  </body>
+</html>
