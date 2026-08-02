@@ -39,7 +39,7 @@
 
         <section class="synthesis-panel">
           <div class="section-heading"><span>5 × 5 合成台</span><small id="selectionText">尚未選擇物質</small></div>
-          <p class="helper">反應只接受符合遊戲生物學模型的明確配方；放錯原料會失敗並消耗材料。</p>
+          <p class="helper">AI 會依生物學判斷合成、內共生或需要補足的條件；條件不足時會保留材料並提示下一步。</p>
           <div class="workbench" id="workbench" aria-label="合成台"></div>
           <div class="controls"><button class="secondary" id="clearButton">清空面板</button><button class="synthesize-button" id="synthesizeButton">開始合成 <span>→</span></button></div>
           <div class="reaction-log" id="reactionLog">合成台等待原料。試著探勘原始海洋。</div>
@@ -55,7 +55,10 @@
     <dialog id="apiDialog">
       <form method="dialog" id="apiForm">
         <div class="dialog-title"><div><span class="eyebrow">可選功能</span><h2>AI 合成判定</h2></div><button class="close" value="cancel">×</button></div>
-        <p>為避免 AI 臆測化學結果，本版本的合成判定鎖定為可驗證的固定規則。AI 可在下一版作為科學解說員使用，而不改寫反應結果。</p>
+        <p>AI 會在生物學限制內規劃反應或演化事件。金鑰只留在本機瀏覽器；正式發布時建議改以伺服器端代理保護金鑰。</p>
+        <label>API 端點<input id="apiEndpoint" placeholder="https://api.openai.com/v1/chat/completions" /></label>
+        <label>API Key<input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
+        <label>模型<input id="apiModel" placeholder="例如 gpt-4.1-mini" /></label>
         <div class="dialog-actions"><button class="secondary" value="cancel">取消</button><button class="synthesize-button" id="saveApi" value="default">儲存設定</button></div>
       </form>
     </dialog>
