@@ -345,21 +345,22 @@ ${items.join('、')}
 async function askGemini(config, prompt) {
 
     const model =
-        config.model || 'gemini-2.5-flash';
+        (config.model || 'gemini-2.5-flash')
+        .trim()
+        .replace(/^models\//, '');
 
-    const endpoint =
-        config.endpoint ||
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-
+    // 永遠依照目前模型重新建立 Gemini 官方 Endpoint
+    // 避免 localStorage 裡殘留舊的 404 Endpoint
     const url =
-        `${endpoint}${endpoint.includes('?') ? '&' : '?'}key=${encodeURIComponent(config.key)}`;
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
     const response = await fetch(url, {
 
         method: 'POST',
 
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-goog-api-key': config.key
         },
 
         body: JSON.stringify({
@@ -395,11 +396,19 @@ async function askGemini(config, prompt) {
 
     if (!response.ok) {
 
-        const errorText =
-            await response.text();
+        let detail = '';
+
+        try {
+            const errorData =
+                await response.json();
+
+            detail =
+                errorData.error?.message || '';
+        } catch {}
 
         throw new Error(
-            `Gemini API 回應失敗（${response.status}）`
+            `Gemini API 回應失敗（${response.status}）` +
+            (detail ? `：${detail}` : '')
         );
     }
 
@@ -408,7 +417,7 @@ async function askGemini(config, prompt) {
 
     const text =
         data.candidates?.[0]?.content?.parts
-            ?.map(p => p.text || '')
+            ?.map(part => part.text || '')
             .join('') || '';
 
     if (!text) {
@@ -418,10 +427,13 @@ async function askGemini(config, prompt) {
     }
 
     try {
+
         return JSON.parse(text);
+
     } catch {
+
         throw new Error(
-            'Gemini 回傳的內容不是有效 JSON'
+            'Gemini 回傳內容不是有效 JSON'
         );
     }
 }
