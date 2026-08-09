@@ -1,67 +1,860 @@
 <!doctype html>
 <html lang="zh-Hant">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>細胞工廠 Cell Factory</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="achievements.css" />
-  </head>
-  <body>
-    <main class="game-shell">
-      <header>
-        <div class="brand"><span class="helix">⌁</span><div><h1>細胞工廠</h1><p>CELL FACTORY · 原始海洋實驗室</p></div></div>
-        <div class="top-actions"><button class="icon-button" id="apiButton" title="AI 設定">AI</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
-      </header>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>細胞工廠 · Cell Factory</title>
 
-      <section class="status-card" aria-live="polite">
-        <div><span class="eyebrow">生命狀態</span><strong id="lifeState">DNA</strong><p id="stateHint">一段等待組裝的遺傳密碼。</p></div>
-        <div class="status-orb" id="statusOrb"><span>DNA</span></div>
-      </section>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-      <section class="scene" id="scene">
-        <div class="ocean-texture"></div>
-        <div class="floating-label">原始海洋 <span id="nextDrop">探勘以開始</span></div>
-        <div class="molecule dna-art">⌁</div>
-        <div id="incoming"></div>
-        <button class="explore-button" id="exploreButton"><span>⌖</span> 探勘海洋</button>
-      </section>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 255, 190, .08), transparent 30%),
+                radial-gradient(circle at 80% 10%, rgba(80, 140, 255, .08), transparent 30%),
+                #071014;
+            color: #e7fff8;
+            font-family:
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Noto Sans TC",
+                sans-serif;
+        }
 
-      <section class="play-area">
-        <aside class="inventory-panel">
-          <div class="section-heading"><span>物質庫</span><small id="inventoryCount">0 種物質</small></div>
-          <p class="helper">選一種物質，再點選合成台格子放入。</p>
-          <div class="inventory" id="inventory"></div>
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .app {
+            width: min(1400px, 94%);
+            margin: auto;
+            padding: 24px 0 50px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: clamp(28px, 5vw, 46px);
+            letter-spacing: 2px;
+        }
+
+        .brand p {
+            margin: 6px 0 0;
+            color: #91aaa5;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .top-button {
+            border: 1px solid #24453f;
+            background: #0c1c20;
+            color: #dffff6;
+            padding: 10px 16px;
+            border-radius: 12px;
+        }
+
+        .top-button:hover {
+            background: #12302e;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr) 300px;
+            gap: 18px;
+        }
+
+        .panel {
+            background: rgba(10, 25, 29, .88);
+            border: 1px solid #1d3939;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, .2);
+        }
+
+        .panel-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #75b9aa;
+            margin-bottom: 14px;
+        }
+
+        /* 左側 */
+
+        .life-card {
+            text-align: center;
+            padding: 20px 10px;
+            border-radius: 16px;
+            background: linear-gradient(145deg, #0c2425, #081719);
+            border: 1px solid #1d4b46;
+            margin-bottom: 18px;
+        }
+
+        .orb {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle at 35% 30%, #d9fff5, #54cdb1 15%, #123d3b 45%, #061315 70%);
+            box-shadow:
+                0 0 30px rgba(64, 221, 182, .25),
+                inset 0 0 25px rgba(255, 255, 255, .08);
+        }
+
+        #statusOrb span {
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+
+        #lifeState {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        #stateHint {
+            margin: 8px 0 0;
+            color: #8da7a2;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .explore {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            padding: 13px;
+            color: #04100e;
+            background: #68e0bd;
+            font-weight: 800;
+        }
+
+        .explore:hover {
+            filter: brightness(1.08);
+        }
+
+        .explore:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .next-drop {
+            margin-top: 12px;
+            text-align: center;
+            color: #77918c;
+            font-size: 12px;
+        }
+
+        /* 中央 */
+
+        .factory {
+            min-width: 0;
+        }
+
+        .factory-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .factory-head h2 {
+            margin: 0;
+            font-size: 21px;
+        }
+
+        .factory-head span {
+            color: #78928d;
+            font-size: 13px;
+        }
+
+        .workbench {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            padding: 14px;
+            border-radius: 16px;
+            background:
+                linear-gradient(145deg, #081619, #0c2021);
+            border: 1px solid #1a3a38;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            border: 1px dashed #31534e;
+            background: #091719;
+            color: #55746e;
+            border-radius: 10px;
+            font-size: 22px;
+            transition: .15s;
+        }
+
+        .cell:hover {
+            border-color: #5dd6b7;
+            background: #102827;
+        }
+
+        .cell.filled {
+            border-style: solid;
+            border-color: #398f7b;
+            color: #bffff0;
+            background: #10302d;
+            font-size: clamp(11px, 2vw, 15px);
+            font-weight: 700;
+        }
+
+        .factory-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .primary,
+        .secondary {
+            flex: 1;
+            border-radius: 12px;
+            padding: 13px;
+        }
+
+        .primary {
+            border: 0;
+            background: #67dcb9;
+            color: #04110f;
+            font-weight: 800;
+        }
+
+        .secondary {
+            border: 1px solid #294744;
+            background: #0b191c;
+            color: #b5ccc8;
+        }
+
+        .reaction {
+            margin-top: 14px;
+            padding: 14px;
+            min-height: 55px;
+            border-radius: 12px;
+            background: #071315;
+            border: 1px solid #183431;
+            color: #9bc1b9;
+            line-height: 1.6;
+        }
+
+        /* 右側 */
+
+        .inventory {
+            max-height: 310px;
+            overflow: auto;
+        }
+
+        .material {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 11px 12px;
+            border-radius: 10px;
+            border: 1px solid #1d3836;
+            background: #0a181b;
+            color: #c9e4de;
+            text-align: left;
+        }
+
+        .material:hover,
+        .material.selected {
+            border-color: #51bfa2;
+            background: #10302c;
+        }
+
+        .material b {
+            color: #72dfc0;
+        }
+
+        .inventory-count {
+            color: #66837d;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .selection {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 10px;
+            background: #071416;
+            color: #71928c;
+            font-size: 12px;
+        }
+
+        .achievements {
+            margin-top: 16px;
+        }
+
+        .achievement {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #17302e;
+            opacity: .45;
+        }
+
+        .achievement.unlocked {
+            opacity: 1;
+        }
+
+        .achievement > span {
+            font-size: 18px;
+            color: #56d4b3;
+        }
+
+        .achievement b,
+        .achievement small {
+            display: block;
+        }
+
+        .achievement b {
+            font-size: 13px;
+        }
+
+        .achievement small {
+            margin-top: 3px;
+            color: #718b86;
+        }
+
+        /* 掉落 */
+
+        .incoming {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 20;
+        }
+
+        .incoming-item {
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: #12352f;
+            border: 1px solid #3c9c83;
+            color: #c9fff1;
+            animation: pop .25s ease;
+        }
+
+        @keyframes pop {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Dialog */
+
+        dialog {
+            width: min(520px, 92vw);
+            border: 1px solid #28504a;
+            border-radius: 18px;
+            padding: 0;
+            color: #e6fff8;
+            background: #09181b;
+            box-shadow: 0 25px 100px rgba(0, 0, 0, .6);
+        }
+
+        dialog::backdrop {
+            background: rgba(0, 0, 0, .72);
+            backdrop-filter: blur(5px);
+        }
+
+        .dialog-inner {
+            padding: 22px;
+        }
+
+        .dialog-inner h2 {
+            margin: 0 0 6px;
+        }
+
+        .dialog-description {
+            color: #79938e;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .field {
+            margin-bottom: 15px;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 7px;
+            color: #9bbab4;
+            font-size: 13px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            border: 1px solid #274642;
+            border-radius: 10px;
+            padding: 11px 12px;
+            outline: none;
+            color: #e7fff8;
+            background: #071315;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: #5bd1b1;
+        }
+
+        .hint {
+            margin-top: 6px;
+            color: #68827c;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .dialog-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+        }
+
+        .save-api {
+            border: 0;
+            background: #67dcb9;
+            color: #04110f;
+            font-weight: 800;
+        }
+
+        .cancel-api {
+            border: 1px solid #294744;
+            background: #0b191c;
+            color: #b5ccc8;
+        }
+
+        .danger {
+            width: 100%;
+            margin-top: 18px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #553333;
+            background: #1c1011;
+            color: #dca8a8;
+        }
+
+        @media (max-width: 1050px) {
+            .dashboard {
+                grid-template-columns: 230px minmax(0, 1fr);
+            }
+
+            .right-panel {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .app {
+                width: 94%;
+                padding-top: 14px;
+            }
+
+            header {
+                align-items: flex-start;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .right-panel {
+                grid-column: auto;
+            }
+
+            .header-actions {
+                flex-direction: column;
+            }
+
+            .workbench {
+                gap: 5px;
+                padding: 9px;
+            }
+
+            .factory-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <header>
+
+        <div class="brand">
+            <h1>細胞工廠</h1>
+            <p>Cell Factory · Evolution Laboratory</p>
+        </div>
+
+        <div class="header-actions">
+            <button
+                id="apiButton"
+                class="top-button">
+                ⚙ AI 設定
+            </button>
+        </div>
+
+    </header>
+
+
+    <main class="dashboard">
+
+        <!-- 左側：生命狀態 -->
+
+        <aside class="panel">
+
+            <div class="panel-title">
+                LIFE STATUS
+            </div>
+
+            <div class="life-card">
+
+                <div
+                    class="orb"
+                    id="statusOrb">
+
+                    <span>DNA</span>
+
+                </div>
+
+                <h2 id="lifeState">
+                    DNA
+                </h2>
+
+                <p id="stateHint">
+                    DNA 本身不是細胞；探勘海洋並讓 AI 協助規劃下一步。
+                </p>
+
+            </div>
+
+            <button
+                id="exploreButton"
+                class="explore">
+
+                🌊 探勘原始海洋
+
+            </button>
+
+            <div
+                id="nextDrop"
+                class="next-drop">
+
+                尚未開始探勘
+
+            </div>
+
         </aside>
 
-        <section class="synthesis-panel">
-          <div class="section-heading"><span>5 × 5 合成台</span><small id="selectionText">尚未選擇物質</small></div>
-          <p class="helper">AI 會依生物學判斷合成、內共生或需要補足的條件；條件不足時會保留材料並提示下一步。</p>
-          <div class="workbench" id="workbench" aria-label="合成台"></div>
-          <div class="controls"><button class="secondary" id="clearButton">清空面板</button><button class="synthesize-button" id="synthesizeButton">開始合成 <span>→</span></button></div>
-          <div class="reaction-log" id="reactionLog">合成台等待原料。試著探勘原始海洋。</div>
+
+        <!-- 中央：合成台 -->
+
+        <section class="panel factory">
+
+            <div class="factory-head">
+
+                <h2>
+                    🧬 生物合成台
+                </h2>
+
+                <span>
+                    5 × 5
+                </span>
+
+            </div>
+
+            <div
+                id="workbench"
+                class="workbench">
+            </div>
+
+            <div class="factory-actions">
+
+                <button
+                    id="synthesizeButton"
+                    class="primary">
+
+                    ⚗ AI 判定合成
+
+                </button>
+
+                <button
+                    id="clearButton"
+                    class="secondary">
+
+                    清空合成台
+
+                </button>
+
+            </div>
+
+            <div
+                id="selectionText"
+                class="selection">
+
+                尚未選擇物質
+
+            </div>
+
+            <div
+                id="reactionLog"
+                class="reaction">
+
+                歡迎來到細胞工廠。
+
+                探勘原始海洋取得材料，
+                再讓 AI 判斷符合生物學的演化路徑。
+
+            </div>
+
         </section>
-      </section>
-      <section class="achievement-panel">
-        <div class="section-heading"><span>演化成就表</span><small>第一章：取得胞器並完成細胞分裂</small></div>
-        <p class="helper">生命起源與演化被壓縮為可玩的模型；粒線體以內共生取得，並非由材料直接「合成」。</p>
-        <div class="achievements" id="achievements"></div>
-      </section>
+
+
+        <!-- 右側：材料與成就 -->
+
+        <aside class="panel right-panel">
+
+            <div class="panel-title">
+                MATERIALS
+            </div>
+
+            <div
+                id="inventoryCount"
+                class="inventory-count">
+
+                0 種物質
+
+            </div>
+
+            <div
+                id="inventory"
+                class="inventory">
+
+            </div>
+
+
+            <div class="panel-title" style="margin-top:22px;">
+                ACHIEVEMENTS
+            </div>
+
+            <div
+                id="achievements"
+                class="achievements">
+
+            </div>
+
+            <button
+                id="resetButton"
+                class="danger">
+
+                重新開始細胞工廠
+
+            </button>
+
+        </aside>
+
     </main>
 
-    <dialog id="apiDialog">
-      <form method="dialog" id="apiForm">
-        <div class="dialog-title"><div><span class="eyebrow">可選功能</span><h2>AI 合成判定</h2></div><button class="close" value="cancel">×</button></div>
-        <p>AI 會在生物學限制內規劃反應或演化事件。金鑰只留在本機瀏覽器；正式發布時建議改以伺服器端代理保護金鑰。</p>
-        <label>API 端點<input id="apiEndpoint" placeholder="https://api.openai.com/v1/chat/completions" /></label>
-        <label>API Key<input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
-        <label>模型<input id="apiModel" placeholder="例如 gpt-4.1-mini" /></label>
-        <div class="dialog-actions"><button class="secondary" value="cancel">取消</button><button class="synthesize-button" id="saveApi" value="default">儲存設定</button></div>
-      </form>
-    </dialog>
-    <script src="app.js"></script>
-  </body>
+</div>
+
+
+<!-- 掉落動畫 -->
+
+<div
+    id="incoming"
+    class="incoming">
+</div>
+
+
+<!-- AI 設定 -->
+
+<dialog id="apiDialog">
+
+    <div class="dialog-inner">
+
+        <h2>
+            🤖 AI 導引員設定
+        </h2>
+
+        <div class="dialog-description">
+
+            選擇 AI 供應商，並輸入你自己的 API Key。
+
+            <br>
+
+            API Key 只會儲存在目前瀏覽器的
+            <b>localStorage</b>，
+            不會寫進 GitHub 程式碼。
+
+        </div>
+
+
+        <form id="apiForm">
+
+            <!-- AI 供應商 -->
+
+            <div class="field">
+
+                <label for="apiProvider">
+                    AI 供應商
+                </label>
+
+                <select id="apiProvider">
+
+                    <option value="gemini">
+                        Google Gemini
+                    </option>
+
+                    <option value="openai">
+                        OpenAI
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- API Key -->
+
+            <div class="field">
+
+                <label for="apiKey">
+                    API Key
+                </label>
+
+                <input
+                    id="apiKey"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="輸入你的 API Key">
+
+                <div class="hint">
+                    不要把自己的 API Key 寫進 JavaScript 或 GitHub。
+                </div>
+
+            </div>
+
+
+            <!-- Model -->
+
+            <div class="field">
+
+                <label for="apiModel">
+                    模型
+                </label>
+
+                <input
+                    id="apiModel"
+                    type="text"
+                    value="gemini-2.5-flash"
+                    placeholder="gemini-2.5-flash">
+
+            </div>
+
+
+            <!-- Endpoint -->
+
+            <div class="field">
+
+                <label for="apiEndpoint">
+                    API Endpoint
+                </label>
+
+                <input
+                    id="apiEndpoint"
+                    type="text"
+                    placeholder="Gemini 官方 API（可留空）">
+
+                <div
+                    id="endpointHint"
+                    class="hint">
+
+                    Gemini 可直接輸入 API Key，
+                    Endpoint 通常不需要修改。
+
+                </div>
+
+            </div>
+
+
+            <div class="dialog-actions">
+
+                <button
+                    type="button"
+                    class="cancel-api"
+                    onclick="document.getElementById('apiDialog').close()">
+
+                    取消
+
+                </button>
+
+                <button
+                    type="submit"
+                    class="save-api">
+
+                    儲存設定
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</dialog>
+
+
+<script src="app.js"></script>
+
+</body>
 </html>
