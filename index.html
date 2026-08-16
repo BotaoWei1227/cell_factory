@@ -3,65 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>細胞工廠 Cell Factory</title>
+    <meta name="description" content="無限煉製的公開配方樹查詢器" />
+    <title>無限煉製・配方路徑</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="achievements.css" />
   </head>
   <body>
-    <main class="game-shell">
-      <header>
-        <div class="brand"><span class="helix">⌁</span><div><h1>細胞工廠</h1><p>CELL FACTORY · 原始海洋實驗室</p></div></div>
-        <div class="top-actions"><button class="icon-button" id="apiButton" title="AI 設定">AI</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">PILLARS OF CREATION · RECIPE EXPLORER</p>
+        <h1><span>⚗</span> 無限煉製・配方路徑</h1>
+        <p class="lead">遞迴追溯每一條公開配方，替你挑出最短的完整合成樹。</p>
       </header>
 
-      <section class="status-card" aria-live="polite">
-        <div><span class="eyebrow">生命狀態</span><strong id="lifeState">DNA</strong><p id="stateHint">一段等待組裝的遺傳密碼。</p></div>
-        <div class="status-orb" id="statusOrb"><span>DNA</span></div>
+      <section class="panel search-panel" aria-labelledby="search-title">
+        <div class="section-title"><span>🧪</span><h2 id="search-title">查詢造物</h2></div>
+        <form id="searchForm">
+          <label class="field target-field">目標造物
+            <input id="targetInput" value="機器人" autocomplete="off" required placeholder="例如：機器人" />
+          </label>
+          <label class="field">已有材料（空白、逗號或換行分隔）
+            <textarea id="ownedInput" rows="2" placeholder="例如：鋼鐵、AI晶片"></textarea>
+          </label>
+          <div class="settings">
+            <label class="field compact">追溯層數
+              <input id="depthInput" type="number" value="4" min="1" max="8" />
+            </label>
+            <label class="field compact">最多造物
+              <input id="nodeLimitInput" type="number" value="120" min="10" max="500" />
+            </label>
+            <label class="field compact">每詞配方上限
+              <input id="recipeLimitInput" type="number" value="10" min="1" max="30" />
+            </label>
+          </div>
+          <details class="proxy-settings">
+            <summary>連線設定（GitHub Pages 需要 CORS proxy）</summary>
+            <label class="field">CORS proxy 前綴
+              <input id="proxyInput" value="https://corsproxy.io/?url=" spellcheck="false" />
+            </label>
+            <p>此頁只查詢公開配方。若預設 proxy 不可用，可改成其他 CORS proxy 前綴，或在同網域代理 API 時留空。</p>
+          </details>
+          <div class="form-actions">
+            <button class="primary" id="searchButton" type="submit"><span>✦</span> 尋找最短配方</button>
+            <button class="secondary" id="exampleButton" type="button">載入範例</button>
+          </div>
+        </form>
       </section>
 
-      <section class="scene" id="scene">
-        <div class="ocean-texture"></div>
-        <div class="floating-label">原始海洋 <span id="nextDrop">探勘以開始</span></div>
-        <div class="molecule dna-art">⌁</div>
-        <div id="incoming"></div>
-        <button class="explore-button" id="exploreButton"><span>⌖</span> 探勘海洋</button>
+      <section id="status" class="status" aria-live="polite">輸入目標後開始查詢。</section>
+
+      <section id="result" class="result hidden" aria-labelledby="result-title">
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">SHORTEST RECIPE TREE</p>
+            <h2 id="result-title">最短合成樹</h2>
+          </div>
+          <div class="metrics">
+            <div><b id="heightMetric">—</b><span>合成層數</span></div>
+            <div><b id="leafMetric">—</b><span>原料葉節點</span></div>
+            <div><b id="nodeMetric">—</b><span>已查詢造物</span></div>
+          </div>
+        </div>
+        <div id="tree" class="tree"></div>
+        <div class="export-actions">
+          <button class="secondary" id="copyButton" type="button">複製文字樹</button>
+          <button class="secondary" id="downloadButton" type="button">下載 JSON</button>
+        </div>
       </section>
 
-      <section class="play-area">
-        <aside class="inventory-panel">
-          <div class="section-heading"><span>物質庫</span><small id="inventoryCount">0 種物質</small></div>
-          <p class="helper">選一種物質，再點選合成台格子放入。</p>
-          <div class="inventory" id="inventory"></div>
-        </aside>
-
-        <section class="synthesis-panel">
-          <div class="section-heading"><span>5 × 5 合成台</span><small id="selectionText">尚未選擇物質</small></div>
-          <p class="helper">AI 會依生物學判斷合成、內共生或需要補足的條件；條件不足時會保留材料並提示下一步。</p>
-          <div class="workbench" id="workbench" aria-label="合成台"></div>
-          <div class="controls"><button class="secondary" id="clearButton">清空面板</button><button class="synthesize-button" id="synthesizeButton">開始合成 <span>→</span></button></div>
-          <div class="reaction-log" id="reactionLog">合成台等待原料。試著探勘原始海洋。</div>
-        </section>
-      </section>
-      <section class="achievement-panel">
-        <div class="section-heading"><span>演化成就表</span><small>第一章：取得胞器並完成細胞分裂</small></div>
-        <p class="helper">生命起源與演化被壓縮為可玩的模型；粒線體以內共生取得，並非由材料直接「合成」。</p>
-        <div class="achievements" id="achievements"></div>
+      <section class="notice">
+        <span>ⓘ</span>
+        <p>資料來自遊戲的公開 API，結果受可見配方清單、搜尋深度與分支上限影響。此工具不登入、不煉製，也不會修改遊戲資料。</p>
       </section>
     </main>
-
-    <dialog id="apiDialog">
-      <form method="dialog" id="apiForm">
-        <div class="dialog-title"><div><span class="eyebrow">可選功能</span><h2>AI 合成判定</h2></div><button class="close" value="cancel">×</button></div>
-        <p>AI 會在生物學限制內規劃反應或演化事件。金鑰只留在本機瀏覽器；正式發布時建議改以伺服器端代理保護金鑰。</p>
-        <label>API 端點<input id="apiEndpoint" placeholder="https://api.openai.com/v1/chat/completions" /></label>
-        <label>API Key<input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
-        <label>模型<input id="apiModel" placeholder="例如 gpt-4.1-mini" /></label>
-        <div class="dialog-actions"><button class="secondary" value="cancel">取消</button><button class="synthesize-button" id="saveApi" value="default">儲存設定</button></div>
-      </form>
-    </dialog>
     <script src="app.js"></script>
   </body>
 </html>

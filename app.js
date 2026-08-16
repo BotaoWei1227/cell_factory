@@ -1,21 +1,193 @@
-const storageKey = 'cell-factory-ai-v3';
-const oceanDrops = ['磷脂質','脂肪酸','磷酸鹽','核苷酸','胺基酸','ATP','葡萄糖','氧氣','好氧細菌'];
-const initial = { inventory:{}, board:Array(25).fill(null), achievements:[] };
-let state = JSON.parse(localStorage.getItem(storageKey) || 'null') || structuredClone(initial);
-let selected = null, timer = null;
-const $ = s => document.querySelector(s);
-function save(){localStorage.setItem(storageKey,JSON.stringify(state))}
-function add(name,n=1){state.inventory[name]=(state.inventory[name]||0)+n}
-function achievement(id,title){if(!state.achievements.includes(id)){state.achievements.push(id);notify(`成就解鎖：${title}`)}}
-function status(){if(state.achievements.includes('division'))return ['可分裂細胞','第一次細胞分裂已完成。'];if(state.achievements.includes('organelle'))return ['具胞器細胞','內共生帶來新的能量工廠。'];if(state.achievements.includes('cell'))return ['原始細胞','已經具備可演化的細胞系統。'];return ['DNA','DNA 本身不是細胞；探勘海洋並讓 AI 協助規劃下一步。']}
-function render(){const [name,hint]=status();$('#lifeState').textContent=name;$('#stateHint').textContent=hint;$('#statusOrb span').textContent=name==='DNA'?'DNA':'CELL';const inv=$('#inventory');inv.innerHTML='';Object.entries(state.inventory).sort().forEach(([name,n])=>{const b=document.createElement('button');b.className='material '+(selected===name?'selected':'');b.innerHTML=`${name}<b>×${n}</b>`;b.onclick=()=>{selected=selected===name?null:name;render()};inv.append(b)});$('#inventoryCount').textContent=`${Object.keys(state.inventory).length} 種物質`;$('#selectionText').textContent=selected?`已選：${selected}`:'尚未選擇物質';const bench=$('#workbench');bench.innerHTML='';state.board.forEach((item,i)=>{const el=document.createElement('button');el.className='cell '+(item?'filled':'');el.textContent=item||'+';el.onclick=()=>place(i);bench.append(el)});renderAchievements();save()}
-function renderAchievements(){const list=$('#achievements');if(!list)return;const defs=[['membrane','膜的起源','建立界線與內外環境'],['molecule','分子組裝','產生可用的生物分子'],['cell','細胞化','形成原始細胞系統'],['organelle','內共生','取得胞器'],['division','生命延續','完成第一次細胞分裂']];list.innerHTML=defs.map(([id,t,d])=>`<div class="achievement ${state.achievements.includes(id)?'unlocked':''}"><span>${state.achievements.includes(id)?'✓':'○'}</span><div><b>${t}</b><small>${d}</small></div></div>`).join('')}
-function notify(t){$('#reactionLog').textContent=t}
-function place(i){if(state.board[i]){add(state.board[i]);state.board[i]=null;render();return}if(!selected||!state.inventory[selected])return;if(--state.inventory[selected]===0)delete state.inventory[selected];state.board[i]=selected;render()}
-function receive(item){add(item);const d=document.createElement('div');d.className='incoming-item';d.textContent=`+ ${item}`;$('#incoming').append(d);setTimeout(()=>d.remove(),1400);render()}
-function startDrops(){if(timer)return;let left=10;$('#nextDrop').textContent=`下一批物資：${left} 秒`;timer=setInterval(()=>{left--;$('#nextDrop').textContent=`下一批物資：${left} 秒`;if(left===0){receive(oceanDrops[Math.floor(Math.random()*oceanDrops.length)]);left=10}},1000)}
-function explore(){const b=$('#exploreButton');b.disabled=true;setTimeout(()=>{if(!state.achievements.includes('first-exploration')){add('磷脂質',2);achievement('first-exploration','海洋探勘');notify('發現磷脂質。把材料放上合成台，讓 AI 判斷可行的演化途徑。');startDrops()}else{receive(oceanDrops[Math.floor(Math.random()*oceanDrops.length)]);notify('探勘隊帶回一份原始海洋材料。')}b.disabled=false;render()},650)}
-async function askAI(items){const cfg=JSON.parse(localStorage.getItem('cell-factory-api')||'{}');if(!cfg.endpoint||!cfg.key)throw new Error('尚未設定 AI API');const prompt=`你是「細胞工廠」的生物學導引員。玩家目前生命階段：${status()[0]}；已解鎖：${state.achievements.join('、')||'無'}。合成台材料：${items.join('、')}。\n請依真實生物學判斷最佳的下一步。你可以提出化學／生化組裝、發現、內共生或細胞分裂，但絕不可把不可能的反應說成成功。粒線體等胞器必須視為吞噬後的長期內共生，不能當成普通化合物。若材料不足，使用 partial，建議需要探勘的材料，不要懲罰玩家。\n只回傳 JSON：{"verdict":"success|partial","mode":"molecule|membrane|cell|endosymbiosis|division|discovery","product":"產物或事件名稱","explanation":"繁體中文、55字內","keep_host":true|false,"needed":"可選，缺少的條件"}`;const res=await fetch(cfg.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${cfg.key}`},body:JSON.stringify({model:cfg.model||'gpt-4.1-mini',messages:[{role:'system',content:'只輸出有效 JSON。嚴格遵守使用者訊息中的生物學限制。'},{role:'user',content:prompt}],temperature:.35,response_format:{type:'json_object'}})});if(!res.ok)throw new Error(`API 回應失敗（${res.status}）`);const data=await res.json();return JSON.parse(data.choices[0].message.content)}
-function unlockFrom(result){if(result.mode==='membrane')achievement('membrane','膜的起源');if(['molecule','discovery'].includes(result.mode))achievement('molecule','分子組裝');if(result.mode==='cell')achievement('cell','細胞化');if(result.mode==='endosymbiosis')achievement('organelle','內共生');if(result.mode==='division')achievement('division','生命延續')}
-async function synthesize(){const items=state.board.filter(Boolean);if(!items.length)return notify('請先將材料放到合成台。');const btn=$('#synthesizeButton');btn.disabled=true;notify('AI 正在檢視反應條件、演化機制與材料限制……');await new Promise(r=>setTimeout(r,900));try{const result=await askAI(items);if(result.verdict!=='success'){notify(`條件尚不足：${result.explanation}${result.needed?` 建議探勘：${result.needed}。`:''} 原料已保留。`);btn.disabled=false;return}state.board=Array(25).fill(null);if(result.product)add(result.product);if(result.keep_host&&items.includes('原始細胞'))add('原始細胞');unlockFrom(result);notify(`${result.mode==='endosymbiosis'?'內共生事件':'AI 判定成功'}：${result.product}。${result.explanation}`)}catch(e){notify(`${e.message}。點右上角 AI，填入 OpenAI 相容 API 後即可開始由 AI 判定；材料已保留。`)}btn.disabled=false;render()}
-$('#exploreButton').onclick=explore;$('#clearButton').onclick=()=>{state.board.filter(Boolean).forEach(x=>add(x));state.board=Array(25).fill(null);render()};$('#synthesizeButton').onclick=synthesize;$('#resetButton').onclick=()=>{if(confirm('要重新開始這座細胞工廠嗎？')){localStorage.removeItem(storageKey);location.reload()}};$('#apiButton').onclick=()=>{const c=JSON.parse(localStorage.getItem('cell-factory-api')||'{}');$('#apiEndpoint').value=c.endpoint||'https://api.openai.com/v1/chat/completions';$('#apiKey').value=c.key||'';$('#apiModel').value=c.model||'gpt-4.1-mini';$('#apiDialog').showModal()};$('#apiForm').addEventListener('submit',e=>{e.preventDefault();localStorage.setItem('cell-factory-api',JSON.stringify({endpoint:$('#apiEndpoint').value.trim(),key:$('#apiKey').value.trim(),model:$('#apiModel').value.trim()}));$('#apiDialog').close();notify('AI 導引員已設定。把材料放上合成台後開始判定。')});render();if(state.achievements.includes('first-exploration'))startDrops();
+const API_ROOT = 'https://pillars-of-creation.funtuan.work/api/nodes';
+const $ = (selector) => document.querySelector(selector);
+let lastResult = null;
+
+function cleanWords(text) {
+  return [...new Set(text.split(/[\s,，、]+/).map((word) => word.trim()).filter(Boolean))];
+}
+
+function escapeHtml(text = '') {
+  return String(text).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+}
+
+function endpoint(word, suffix = '') {
+  return `${API_ROOT}/${encodeURIComponent(word)}${suffix}`;
+}
+
+function proxied(url, prefix) {
+  return prefix.trim() ? `${prefix.trim()}${encodeURIComponent(url)}` : url;
+}
+
+function stateLabel(state) {
+  return {
+    owned: '已有材料',
+    unavailable: '找不到公開配方',
+    limit: '到達搜尋上限',
+    cycle: '略過循環',
+  }[state] || '';
+}
+
+function treeSize(plan) {
+  return 1 + plan.children.reduce((sum, child) => sum + treeSize(child), 0);
+}
+
+function unresolvedLeaves(plan) {
+  if (!plan.children.length) return plan.state === 'owned' ? 0 : 1;
+  return plan.children.reduce((sum, child) => sum + unresolvedLeaves(child), 0);
+}
+
+function score(plan) {
+  return [plan.height, unresolvedLeaves(plan), plan.leaves, treeSize(plan)];
+}
+
+function compareScore(a, b) {
+  const aScore = score(a);
+  const bScore = score(b);
+  for (let index = 0; index < aScore.length; index += 1) {
+    if (aScore[index] !== bScore[index]) return aScore[index] - bScore[index];
+  }
+  return 0;
+}
+
+class RecipeFinder {
+  constructor({ proxy, maxNodes, recipeLimit, owned }) {
+    this.proxy = proxy;
+    this.maxNodes = maxNodes;
+    this.recipeLimit = recipeLimit;
+    this.owned = owned;
+    this.cache = new Map();
+    this.pending = new Map();
+    this.limitHit = false;
+  }
+
+  async getJson(url) {
+    const response = await fetch(proxied(url, this.proxy));
+    if (!response.ok) throw new Error(`API 回應 ${response.status}`);
+    return response.json();
+  }
+
+  async fetchNode(word) {
+    if (this.cache.has(word)) return this.cache.get(word);
+    if (this.pending.has(word)) return this.pending.get(word);
+    if (this.cache.size >= this.maxNodes) {
+      this.limitHit = true;
+      return { word, emoji: '', recipes: [], limited: true };
+    }
+    const request = (async () => {
+      try {
+        const [detailResponse, recipeResponse] = await Promise.all([
+          this.getJson(endpoint(word)),
+          this.getJson(endpoint(word, '/recipes')),
+        ]);
+        const detail = detailResponse.node || {};
+        const unique = new Set();
+        const recipes = [...(recipeResponse.recipes || []), ...(detail.recipes || [])]
+          .filter((recipe) => recipe.a && recipe.b)
+          .filter((recipe) => {
+            const key = `${recipe.a}\u0000${recipe.b}`;
+            if (unique.has(key)) return false;
+            unique.add(key);
+            return true;
+          })
+          .slice(0, this.recipeLimit)
+          .map((recipe) => ({ left: recipe.a, right: recipe.b, leftEmoji: recipe.aEmoji || '', rightEmoji: recipe.bEmoji || '' }));
+        const node = { word, emoji: detail.emoji || '', recipes, limited: false };
+        this.cache.set(word, node);
+        return node;
+      } catch (error) {
+        const node = { word, emoji: '', recipes: [], limited: false, error: error.message };
+        this.cache.set(word, node);
+        return node;
+      } finally {
+        this.pending.delete(word);
+      }
+    })();
+    this.pending.set(word, request);
+    return request;
+  }
+
+  async solve(word, remaining, trail = []) {
+    const node = await this.fetchNode(word);
+    if (this.owned.has(word)) return { word, emoji: node.emoji, recipe: null, children: [], height: 0, leaves: 1, state: 'owned' };
+    if (trail.includes(word)) return { word, emoji: node.emoji, recipe: null, children: [], height: 0, leaves: 1, state: 'cycle' };
+    if (node.limited) return { word, emoji: node.emoji, recipe: null, children: [], height: 0, leaves: 1, state: 'limit' };
+    if (remaining === 0) return { word, emoji: node.emoji, recipe: null, children: [], height: 0, leaves: 1, state: 'limit' };
+    if (!node.recipes.length) return { word, emoji: node.emoji, recipe: null, children: [], height: 0, leaves: 1, state: 'unavailable' };
+
+    const options = await Promise.all(node.recipes.map(async (recipe) => {
+      const [left, right] = await Promise.all([
+        this.solve(recipe.left, remaining - 1, [...trail, word]),
+        this.solve(recipe.right, remaining - 1, [...trail, word]),
+      ]);
+      return { word, emoji: node.emoji, recipe, children: [left, right], height: 1 + Math.max(left.height, right.height), leaves: left.leaves + right.leaves, state: 'recipe' };
+    }));
+    return options.sort(compareScore)[0];
+  }
+}
+
+function renderPlan(plan) {
+  const label = `${plan.emoji ? `${escapeHtml(plan.emoji)} ` : ''}${escapeHtml(plan.word)}`;
+  const badge = plan.state === 'recipe' ? '' : `<span class="badge ${plan.state}">${stateLabel(plan.state)}</span>`;
+  if (!plan.children.length) return `<li><div class="tree-node"><span class="node-name">${label}</span>${badge}</div></li>`;
+  const recipe = `${escapeHtml(plan.recipe.left)} + ${escapeHtml(plan.recipe.right)}`;
+  return `<li><details open><summary><span class="tree-node"><span class="node-name">${label}</span><span class="recipe">${recipe} →</span></span></summary><ul>${plan.children.map(renderPlan).join('')}</ul></details></li>`;
+}
+
+function textTree(plan, prefix = '', isLast = true) {
+  const label = `${plan.emoji ? `${plan.emoji} ` : ''}${plan.word}${plan.state === 'recipe' ? '' : ` [${stateLabel(plan.state)}]`}`;
+  const lines = [`${prefix}${isLast ? '└─' : '├─'} ${label}`];
+  const childPrefix = `${prefix}${isLast ? '   ' : '│  '}`;
+  plan.children.forEach((child, index) => lines.push(...textTree(child, childPrefix, index === plan.children.length - 1)));
+  return lines;
+}
+
+function setBusy(busy, message) {
+  $('#searchButton').disabled = busy;
+  $('#searchButton').innerHTML = busy ? '<span class="spinner"></span> 查詢中…' : '<span>✦</span> 尋找最短配方';
+  $('#status').textContent = message;
+}
+
+async function search(event) {
+  event.preventDefault();
+  const target = $('#targetInput').value.trim();
+  if (!target) return;
+  const maxDepth = Number($('#depthInput').value);
+  const maxNodes = Number($('#nodeLimitInput').value);
+  const recipeLimit = Number($('#recipeLimitInput').value);
+  const finder = new RecipeFinder({ proxy: $('#proxyInput').value, maxNodes, recipeLimit, owned: new Set(cleanWords($('#ownedInput').value)) });
+  $('#result').classList.add('hidden');
+  setBusy(true, `正在追溯「${target}」的公開配方…`);
+  try {
+    const plan = await finder.solve(target, maxDepth);
+    lastResult = { target, plan, crawledNodes: finder.cache.size, settings: { maxDepth, maxNodes, recipeLimit } };
+    $('#heightMetric').textContent = plan.height;
+    $('#leafMetric').textContent = plan.leaves;
+    $('#nodeMetric').textContent = finder.cache.size;
+    $('#tree').innerHTML = `<ul>${renderPlan(plan)}</ul>`;
+    $('#result').classList.remove('hidden');
+    const suffix = finder.limitHit ? ' 已達造物上限；可提高「最多造物」再試。' : '';
+    setBusy(false, `完成：已查詢 ${finder.cache.size} 個造物。${suffix}`);
+  } catch (error) {
+    setBusy(false, `查詢失敗：${error.message}。請確認 CORS proxy 設定後重試。`);
+  }
+}
+
+$('#searchForm').addEventListener('submit', search);
+$('#exampleButton').addEventListener('click', () => {
+  $('#targetInput').value = '機器人';
+  $('#ownedInput').value = '鋼鐵、AI晶片';
+  $('#depthInput').value = 4;
+});
+$('#copyButton').addEventListener('click', async () => {
+  if (!lastResult) return;
+  await navigator.clipboard.writeText(textTree(lastResult.plan).join('\n'));
+  $('#copyButton').textContent = '已複製';
+  setTimeout(() => { $('#copyButton').textContent = '複製文字樹'; }, 1500);
+});
+$('#downloadButton').addEventListener('click', () => {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json;charset=utf-8' });
+  const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${lastResult.target}-shortest-tree.json` });
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
